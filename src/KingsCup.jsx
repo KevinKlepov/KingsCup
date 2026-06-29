@@ -185,7 +185,6 @@ function ModeSelect({ onSelect }) {
   return (
     <div style={{ width: "100%", maxWidth: 360, margin: "0 auto" }}>
       <div style={{ textAlign: "center", marginBottom: 40 }}>
-        <div style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 600, fontSize: 14, letterSpacing: "0.35em", color: "#c9a227", marginBottom: 2 }}>EIN TRINKSPIEL</div>
         <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 700, fontSize: 48, margin: 0, color: "#f3e6cf", textShadow: "0 2px 18px rgba(201,162,39,0.25)" }}>King's Cup</h1>
       </div>
 
