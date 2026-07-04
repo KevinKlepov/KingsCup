@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import Peer from "peerjs";
-import { makeInitialState, processAction, serializeState, generateRoomCode, roomCodeToPeerId, RULES } from "./data.js";
+import { makeInitialState, processAction, serializeState, generateRoomCode, roomCodeToPeerId } from "./data.js";
 import { inputStyle, primaryBtnStyle, ghostBtnStyle, iconBtnStyle } from "./styles.js";
-import { PlayingCard, CupVisual, SectionHeader, GameHeader, RuleText, StatusBar, ActiveRules, CardLog } from "./KingsCup.jsx";
+import { PlayingCard, SectionHeader, GameHeader, RuleText, StatusBar, ActiveRules, CardLog } from "./KingsCup.jsx";
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
 
@@ -100,9 +100,9 @@ function HostCreate({ onStart }) {
 
 // ─── Shared GameView (used by host and guest) ────────────────────────────────
 
-function GameView({ syncState, myName, hostName, isHost, onAction, onExit }) {
-  const { players, current, kingsDrawn, gameOver, activeRules, kumpel,
-    currentPlayerIdx, lastDrawerIdx, drawCount, log, deckLength, deckVersion,
+function GameView({ syncState, myName, isHost, onAction, onExit }) {
+  const { players, current, gameOver, activeRules, kumpel,
+    currentPlayerIdx, lastDrawerIdx, drawCount, log, deckLength,
     showRuleForm, showKumpelPicker } = syncState;
 
   const [flipped, setFlipped] = useState(false);
@@ -126,11 +126,6 @@ function GameView({ syncState, myName, hostName, isHost, onAction, onExit }) {
     if (!ruleInput.trim()) return;
     onAction({ type: "ADD_RULE", text: ruleInput.trim() });
     setRuleInput("");
-  };
-
-  const stateForComponents = {
-    ...syncState,
-    deck: { length: deckLength }, // duck-type for StatusBar
   };
 
   return (
@@ -515,7 +510,6 @@ export default function MultiGame({ onExit, initialRoomCode }) {
       <GameView
         syncState={syncState}
         myName={myName}
-        hostName={hostName}
         isHost={!isGuest}
         onAction={onAction}
         onExit={onExit}
