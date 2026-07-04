@@ -98,12 +98,21 @@ export function RuleText({ state, gameOver, lastDrawerName }) {
   return (
     <div style={{ minHeight: 80, textAlign: "center", marginBottom: 16, padding: "0 8px" }}>
       {gameOver ? (
-        <>
-          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 24, color: "#c9a227", fontWeight: 700 }}>👑 Vierter König!</div>
-          <div style={{ fontSize: 14, color: "#cdb89e", marginTop: 6, lineHeight: 1.5 }}>
-            <strong>{lastDrawerName}</strong> hat den letzten König gezogen und muss den Becher leeren. Prost!
-          </div>
-        </>
+        state?.kingsDrawn >= 4 ? (
+          <>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 24, color: "#c9a227", fontWeight: 700 }}>👑 Vierter König!</div>
+            <div style={{ fontSize: 14, color: "#cdb89e", marginTop: 6, lineHeight: 1.5 }}>
+              <strong>{lastDrawerName}</strong> hat den letzten König gezogen und muss den Becher leeren. Prost!
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 24, color: "#c9a227", fontWeight: 700 }}>🏁 Spiel beendet</div>
+            <div style={{ fontSize: 14, color: "#cdb89e", marginTop: 6, lineHeight: 1.5 }}>
+              Zu wenige Spieler übrig, um weiterzuspielen.
+            </div>
+          </>
+        )
       ) : rule ? (
         <>
           <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 24, color: "#c9a227", fontWeight: 700 }}>{rule.emoji} {rule.title}</div>
