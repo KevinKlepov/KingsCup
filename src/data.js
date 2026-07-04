@@ -96,6 +96,29 @@ export function processAction(state, action) {
       return { ...state, showRuleForm: false };
     case "NEW_GAME":
       return makeInitialState(state.players);
+    case "REMOVE_PLAYER": {
+      const ri = state.players.indexOf(action.name);
+      if (ri === -1) return state;
+      const players = state.players.filter((_, i) => i !== ri);
+      if (players.length < 2) {
+        return { ...state, players, gameOver: true };
+      }
+      let currentPlayerIdx = state.currentPlayerIdx;
+      if (currentPlayerIdx > ri) currentPlayerIdx -= 1;
+      currentPlayerIdx = currentPlayerIdx % players.length;
+      let lastDrawerIdx = state.lastDrawerIdx;
+      let showRuleForm = state.showRuleForm;
+      let showKumpelPicker = state.showKumpelPicker;
+      if (lastDrawerIdx === ri) {
+        lastDrawerIdx = null;
+        showRuleForm = false;
+        showKumpelPicker = false;
+      } else if (lastDrawerIdx !== null && lastDrawerIdx > ri) {
+        lastDrawerIdx -= 1;
+      }
+      const kumpel = state.kumpel === action.name ? null : state.kumpel;
+      return { ...state, players, currentPlayerIdx, lastDrawerIdx, showRuleForm, showKumpelPicker, kumpel };
+    }
     default:
       return state;
   }
@@ -112,5 +135,5 @@ export function roomCodeToPeerId(code) {
 }
 
 export function generateRoomCode() {
-  return Math.random().toString(36).substr(2, 6).toUpperCase();
+  return Math.random().toString(36).slice(2, 8).toUpperCase();
 }

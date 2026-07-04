@@ -52,7 +52,7 @@ function PlayerList({ players, myName, hostName }) {
 
 // ─── Name Entry (for guests joining via link) ────────────────────────────────
 
-function NameEntry({ roomCode, onJoin }) {
+function NameEntry({ roomCode, onJoin, errorMsg }) {
   const [name, setName] = useState("");
   return (
     <div style={{ width: "100%", maxWidth: 360, margin: "0 auto" }}>
@@ -63,6 +63,11 @@ function NameEntry({ roomCode, onJoin }) {
           Raum <span style={{ letterSpacing: "0.12em" }}>{roomCode.toUpperCase()}</span>
         </div>
       </div>
+      {errorMsg && (
+        <div style={{ marginBottom: 14, padding: "8px 12px", borderRadius: 10, background: "rgba(156,43,58,0.12)", border: "1px solid rgba(156,43,58,0.35)", fontSize: 13, color: "#e2a1ab", textAlign: "center" }}>
+          {errorMsg}
+        </div>
+      )}
       <input value={name} onChange={e => setName(e.target.value)}
         placeholder="Dein Name" maxLength={20} style={{ ...inputStyle, marginBottom: 12 }}
         onKeyDown={e => e.key === "Enter" && name.trim() && onJoin(name.trim())}
@@ -139,10 +144,19 @@ function GameView({ syncState, myName, hostName, isHost, onAction, onExit }) {
 
       {/* "Am Zug" indicator for spectators */}
       {!isMyTurn && !gameOver && (
-        <div style={{ textAlign: "center", marginBottom: 10, padding: "6px 14px", borderRadius: 10, background: "rgba(255,255,255,0.03)", border: "1px solid #2e1a14" }}>
+        <div style={{ textAlign: "center", marginBottom: 10, padding: "6px 14px", borderRadius: 10, background: "rgba(255,255,255,0.03)", border: "1px solid #2e1a14", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, flexWrap: "wrap" }}>
           <span style={{ fontSize: 13, color: "#7a6655" }}>
             ⏳ Warte auf <strong style={{ color: "#f3e6cf" }}>{players[currentPlayerIdx]}</strong>…
           </span>
+          {isHost && (
+            <button
+              onClick={() => onAction({ type: "REMOVE_PLAYER", name: players[currentPlayerIdx] })}
+              style={{ background: "none", border: "1px solid #2e1a14", borderRadius: 8, color: "#7a6655", cursor: "pointer", fontSize: 12, padding: "2px 8px" }}
+              title="Spieler entfernen, falls er/sie nicht mehr reagiert"
+            >
+              Entfernen
+            </button>
+          )}
         </div>
       )}
 
@@ -239,6 +253,7 @@ export default function MultiGame({ onExit, initialRoomCode }) {
   const connectionsRef = useRef(new Map()); // name -> DataConnection (host only)
   const hostConnRef = useRef(null);          // guest -> host connection
   const gameStateRef = useRef(null);          // host keeps live state here
+  const rejectedRef = useRef(false);          // guest: name was rejected, ignore the close event that follows
 
   // ── Broadcast (host only) ──
   const broadcast = useCallback((msg) => {
@@ -255,6 +270,14 @@ export default function MultiGame({ onExit, initialRoomCode }) {
     const serialized = serializeState(next);
     setSyncState(serialized);
     broadcast({ type: "SYNC", state: serialized });
+    // Fully disconnect a removed player's connection so they don't linger as a zombie peer
+    if (action.type === "REMOVE_PLAYER") {
+      const conn = connectionsRef.current.get(action.name);
+      if (conn) {
+        connectionsRef.current.delete(action.name);
+        if (conn.open) conn.close();
+      }
+    }
   }, [broadcast]);
 
   // ── Guest action: forward to host ──
@@ -303,6 +326,14 @@ export default function MultiGame({ onExit, initialRoomCode }) {
       conn.on("data", (data) => {
         if (data.type === "JOIN") {
           const guestName = data.name;
+          const nameTaken = guestName === name
+            || gameStateRef.current?.players.includes(guestName)
+            || connectionsRef.current.get(guestName)?.open;
+          if (nameTaken) {
+            conn.send({ type: "JOIN_REJECTED", reason: "Name bereits vergeben" });
+            setTimeout(() => conn.close(), 500);
+            return;
+          }
           connectionsRef.current.set(guestName, conn);
           setPlayers(prev => {
             const next = prev.includes(guestName) ? prev : [...prev, guestName];
@@ -316,8 +347,21 @@ export default function MultiGame({ onExit, initialRoomCode }) {
       });
 
       conn.on("close", () => {
-        // Remove disconnected player
-        connectionsRef.current.forEach((c, n) => { if (c === conn) connectionsRef.current.delete(n); });
+        // Remove disconnected player's connection, and let them go from the game/lobby too
+        let disconnectedName = null;
+        connectionsRef.current.forEach((c, n) => { if (c === conn) disconnectedName = n; });
+        if (disconnectedName === null) return;
+        connectionsRef.current.delete(disconnectedName);
+
+        if (gameStateRef.current) {
+          hostDispatch({ type: "REMOVE_PLAYER", name: disconnectedName });
+        } else {
+          setPlayers(prev => {
+            const next = prev.filter(p => p !== disconnectedName);
+            connectionsRef.current.forEach(c => c.open && c.send({ type: "LOBBY", players: next, host: name }));
+            return next;
+          });
+        }
       });
     });
 
@@ -362,9 +406,17 @@ export default function MultiGame({ onExit, initialRoomCode }) {
         if (data.type === "PHASE" && data.phase === "game") {
           setPhase("game");
         }
+        if (data.type === "JOIN_REJECTED") {
+          rejectedRef.current = true;
+          peerRef.current?.destroy();
+          hostConnRef.current = null;
+          setError(`Beitritt fehlgeschlagen: ${data.reason}. Bitte anderen Namen wählen.`);
+          setPhase("name-entry");
+        }
       });
 
       conn.on("close", () => {
+        if (rejectedRef.current) { rejectedRef.current = false; return; }
         setError("Host hat die Verbindung getrennt.");
         setPhase("error");
       });
@@ -397,7 +449,7 @@ export default function MultiGame({ onExit, initialRoomCode }) {
   // ── RENDER ──
 
   if (phase === "name-entry") {
-    return <NameEntry roomCode={initialRoomCode} onJoin={joinRoom} />;
+    return <NameEntry roomCode={initialRoomCode} onJoin={joinRoom} errorMsg={error} />;
   }
 
   if (phase === "host-create") {

@@ -297,7 +297,6 @@ function Game({ players, onExit }) {
     setRuleInput("");
   };
 
-  const iAmDrawer = state.lastDrawerIdx !== null;
   const lastDrawerName = state.lastDrawerIdx !== null ? state.players[state.lastDrawerIdx] : null;
 
   return (
